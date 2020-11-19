@@ -3,6 +3,7 @@ authors = ["Juan Arias Espinoza"]
 
 [deps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Calculus = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
