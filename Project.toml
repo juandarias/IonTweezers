@@ -1,6 +1,19 @@
 name = "IonTweezers"
 authors = ["Juan Arias Espinoza"]
+
+[deps]
+Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
+Calculus = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
+DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
+DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+LineSearches = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
+NLSolversBase = "d41bc354-129a-5804-8e4c-c37616107c6c"
+NLopt = "76087f3c-5699-56af-9a33-bf431cd00edd"
+NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+SymPy = "24249f21-da20-56a4-8eb1-6a02cf4ae2e6"
+UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
+
 [compat]
 julia = "1.5.2"
-[deps]
-DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
