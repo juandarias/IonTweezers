@@ -123,20 +123,21 @@ module crystal_geometry
          for α in 1:3, i in 1:Nions
             ddu[α,i]= -(α!=3)*u[α,i]*Ω[α]^2 - (ee/(mYb))*Etrap[α](u[:,i]...) - cvel*du[α,i]/mYb #Paul trap + Cooling force
             for j in 1:Nions
-               i != j && (ddu[α,i] = ddu[α,i] + cel*(u[α,i]-u[α,j])/(sum((u0[:,1]-u0[:,2]).^2)^1.5)) #Coulomb force
+               i != j && (ddu[α,i] = ddu[α,i] + cel*(u[α,i]-u[α,j])/(sum((u[:,i]-u[:,j]).^2)^1.5)) #Coulomb force
             end
          end
       end
      
       function exactpos!(ddu,u)
          for α in 1:3, i in 1:Nions
-            ddu[α,i]= -(α!=3)*u[α,i]*Ω[α]^2 - (ee/(mYb))*Etrap[α](u[:,i]...) #Paul trap
+            ddu[α,i]= -(α!=3)*u[α,i]*Ω[α]^2 - (ee/mYb)*Etrap[α](u[:,i]...) #Paul trap
             for j in 1:Nions
-               i != j && (ddu[α,i] = ddu[α,i] + cel*(u[α,i]-u[α,j])/(sum((u0[:,1]-u0[:,2]).^2)^1.5)) #Coulomb force
+               i != j && (ddu[α,i] = ddu[α,i] + cel*(u[α,i]-u[α,j])/(sum((u[:,i]-u[:,j]).^2)^1.5)) #Coulomb force
             end
          end
       end
-     
+
+
       prob = SecondOrderODEProblem(approxpos!,du0,u0,tspan);
       sol_approx = solve(prob,Tsit5(),save_everystep=false);
       u_min = reshape(sol_approx[3*Nions+1:end, end],3, Nions)
@@ -146,7 +147,7 @@ module crystal_geometry
       plot_position == true && return (sol_exact.zero)/d, [scatterplot(x,z;border=:corners,grid=:false,xlabel="X [μm]",ylabel="Z [μm]",xlim=(x_min,x_max),ylim=(z_min,z_max)),  scatterplot(y,z;border=:corners,grid=:false,xlabel="Y [μm]",ylabel="Z [μm]",xlim=(y_min,y_max),ylim=(z_min,z_max))]
       plot_position == false && return (sol_exact.zero)/d
     end
-
+    
     function TrapPotential(x0,y0,z0)
       x, y, z = Sym("x y z"); a, b, e = Sym("a b e");
       Ez(x,y,z) = -(a*z + b*z^3 - (3b/2)*z*(x^2 + y^2))/e;
