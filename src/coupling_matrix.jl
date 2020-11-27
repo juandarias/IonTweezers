@@ -3,7 +3,7 @@ module coupling_matrix
     using LinearAlgebra, LinearAlgebra.BLAS, SparseArrays, Arpack, Calculus, DrWatson;
     include(srcdir()*"/constants.jl")
 
-    export Jtarget, Jexp1D, Jexp3D, JexpAD, JexpSVD, JexpPT, Jexp_multiple_note
+    export Jtarget, Jexp1D, Jexp3D, JexpAD, JexpSVD, JexpPT, Jexp_multiple_note, Hessian
 
     function Jtarget(edge_list_FM::Vector, edge_list_AFM::Vector, Nions::Int; J_strength=0.0)
         J = spzeros(Nions,Nions)
@@ -112,27 +112,31 @@ module coupling_matrix
     end
 
 
-    function Jexp1D(pos_ions::Array, Ωpin::Vector, ω_trap::Vector, μ_raman::Float64; equidistant::Bool=false, coeffs_field::Array{Float64}=[1.0,1.0], size_crystal::Float64=1.0) #Working. Too many calls to eigen!
+    function Jexp1D(pos_ions::Array, Ωpin::Vector, ω_trap::Vector, μ_raman::Float64; equidistant::Bool=false, coeffs_field::Array{Float64}=[1.0,1.0], size_crystal::Float64=1.0, planes::Array{Int64}=[1], hessian::Array{Float64,2}=Array{Float64}(undef, 0, 0)) #Working. Too many calls to eigen!
         Nions = size(pos_ions)[2]
         l0 = (ee^2/(4*π*ϵ0*mYb*ω_trap[3]^2))^(1/3);
         u_ions = pos_ions
         
         ### Hessian unpinned system
-        equidistant == false && (Hess = Hessian(u_ions, ω_trap, planes=[1]));
-        equidistant == true && (Hess = Hessian(u_ions, ω_trap, coeffs_field, size_crystal, planes=[1]));
+        if isempty(hessian)
+            equidistant == false && (Hess_nopin = Hessian(u_ions, ω_trap, planes=planes));
+            equidistant == true && (Hess_nopin = Hessian(u_ions, ω_trap, coeffs_field, size_crystal, planes=planes));
+        else
+            Hess_nopin = hessian
+        end
 
         ### Pinning matrix and Hessian of pinned system
         signΩ(omega) = diagm([sign(omega[i]) for i in 1:Nions])
         #Ω2pin_matrix(omega) = kron(diagm(kvec), diagm(signΩ(omega)*((omega./ω_trap[3]).^2)))
-        Ω2pin_matrix(omega) = diagm(signΩ(omega)*((omega./ω_trap[3]).^2))
-        Hess_pinned(omega) = Hess + Ω2pin_matrix(omega)
+        Ω2pin_matrix(omega) = diagm(signΩ(omega)*((omega).^2))
+        Hess_pinned(omega) = Hess_nopin + Ω2pin_matrix(omega)
 
         ### Phonon modes and frequencies
         λm, bm = eigen(Hess_pinned(Ωpin)); #combine with evals
         #ωm = ω_trap[3]*sqrt.(Complex.(λm))
 
         ### Coupling matrix
-        Jexp = [sum([i==j ? 0 : bm[i,m]*bm[j,m]/(μ_raman^2 - ω_trap[3]^2*λm[m]) for m in 1:Nions]) for i in 1:Nions, j in 1:Nions];#the angular frequency of phonon mode m is ω_m = ω_z*√λ_m, where λ_m is the eigenvalue of mode m.
+        Jexp = [sum([i==j ? 0 : bm[i,m]*bm[j,m]/((μ_raman*ω_trap[3])^2 - ω_trap[3]^2*λm[m]) for m in 1:Nions]) for i in 1:Nions, j in 1:Nions];#the angular frequency of phonon mode m is ω_m = ω_z*√λ_m, where λ_m is the eigenvalue of mode m.
 
         return real(Jexp), λm, bm
     end
