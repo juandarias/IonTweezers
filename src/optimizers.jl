@@ -44,7 +44,7 @@ export IPNewtonPin, MMAPin, AUGLAGPin, GDPin, CGDPin, GDPin4;
         return res
     end
 
-    function GDPin(Nions::Int, fun::Function, xguess::Vector, Ωmax::Float64; μmax::Float64=0.0,  μmin::Float64=0.0, c1max::Float64=0.0, c1min::Float64=0.0, show_trace::Bool=false, kwargs...)
+    function GDPin(Nions::Int, target_function::Function, xguess::Vector, Ωmax::Float64; μmax::Float64=0.0,  μmin::Float64=0.0, c1max::Float64=0.0, c1min::Float64=0.0, show_trace::Bool=false, kwargs...)
 
         #Bounds
         #numPars = length(xguess);
@@ -53,9 +53,9 @@ export IPNewtonPin, MMAPin, AUGLAGPin, GDPin, CGDPin, GDPin4;
 
         #Optimizer
         inner_optimizer = GradientDescent()
-        res = Optim.optimize(fun, lc, uc, xguess, Fminbox(inner_optimizer), Optim.Options(;kwargs...))
+        solution = Optim.optimize(target_function, lc, uc, xguess, Fminbox(inner_optimizer), Optim.Options(;kwargs...))
 
-        return res
+        return solution
     end
 
 "=================================="

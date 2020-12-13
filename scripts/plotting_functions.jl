@@ -46,7 +46,7 @@ module plotting_functions
         save_results == true && savefig(plotsdir(location, name_figure)*".svg", bbox_inches="tight")
     end
 
-    function PlotAnyMatrix(any_matrix::Array{Float64,2}; save_results=false, name_figure=nothing, location=nothing, label_x="x", label_y="y", label_c="c", comment="")
+    function PlotAnyMatrix(any_matrix::Array{Float64,2}; save_results=false, name_figure=nothing, location=nothing, label_x="x", label_y="y", label_c="c", comment="", label_vals=nothing)
         fig, ax = plt.subplots()
         Nions = size(any_matrix)[1]
         mat = ax.matshow(any_matrix, cmap="seismic")
@@ -62,6 +62,11 @@ module plotting_functions
         text(-1,-1.25,comment)
         #ax.xaxis.set_label_position("top")
         ax.xaxis.tick_bottom()
+        if label_vals !== nothing
+            for i=0:Nions-1, j=0:Nions-1
+                ax.text(i,j,label_vals[i+1,j+1], ha="center", va="center")
+            end
+        end
         save_results == true && savefig(plotsdir(location, name_figure)*".svg", bbox_inches="tight")
     end
 
