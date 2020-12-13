@@ -6,7 +6,7 @@ module plotting_functions
     using LinearAlgebra, PyPlot, SparseArrays, PyCall
     include(plotsdir()*"/format_Plot.jl")
 
-    export Crystal2D, PlotMatrix, GraphCoupling, PlotSpectra, PlotMatrixArticle, PlotUnitary, TweezerStrength
+    export Crystal2D, PlotMatrix, GraphCoupling, PlotSpectra, PlotMatrixArticle, PlotUnitary, TweezerStrength, ModesInPlane, PlotAnyMatrix
 
     function PlotMatrix(interaction_matrix::Array, target_matrix::Array, solution::Vector)
         fig, ax = plt.subplots()
@@ -20,29 +20,66 @@ module plotting_functions
         text(-0.5,-1.5, "\$ \\epsilon \$ ="*string(round(ϵ_JJ;digits=3)))
         lim_color = maximum(abs.(interaction_matrix))
         mat.set_clim(vmin=-lim_color,vmax=lim_color)
-        ax.set_xticklabels(collect(0:1:7))
-        ax.set_yticklabels(collect(0:1:7))
+        ax.set_xticklabels(collect(0:1:Nions-1))
+        ax.set_yticklabels(collect(0:1:Nions-1))
         cbar.set_label("\$ J_{i,j} \$[Hz]")
         xlabel("Ion i")
         ylabel("Ion j")
         ax.xaxis.set_label_position("top")
     end
 
-    function PlotMatrixArticle(interaction_matrix::Array{Float64,2}; save_results=false, name_figure=nothing)
+    function PlotMatrixArticle(interaction_matrix::Array{Float64,2}; save_results=false, name_figure=nothing, location=nothing)
         fig, ax = plt.subplots()
         Nions = size(interaction_matrix)[1]
         mat = ax.matshow(interaction_matrix, cmap="seismic")
         cbar = fig.colorbar(mat)
         lim_color = maximum(abs.(interaction_matrix))
         mat.set_clim(vmin=-lim_color,vmax=lim_color)
-        ax.set_xticklabels(collect(0:1:Nions-1))
-        ax.set_yticklabels(collect(0:1:Nions-1))
+        ax.set_xticks(0:1:Nions-1);ax.set_yticks(0:1:Nions-1)
+        ax.set_xticklabels(collect(1:1:Nions))
+        ax.set_yticklabels(collect(1:1:Nions))
         cbar.set_label("\$ J_{i,j}/(2\\pi)\\, \$(Hz)")
         xlabel("Ion i")
         ylabel("Ion j")
         #ax.xaxis.set_label_position("top")
         ax.xaxis.tick_bottom()
-        save_results == true && savefig(plotsdir(name_figure)*".svg", bbox_inches="tight")
+        save_results == true && savefig(plotsdir(location, name_figure)*".svg", bbox_inches="tight")
+    end
+
+    function PlotAnyMatrix(any_matrix::Array{Float64,2}; save_results=false, name_figure=nothing, location=nothing, label_x="x", label_y="y", label_c="c", comment="")
+        fig, ax = plt.subplots()
+        Nions = size(any_matrix)[1]
+        mat = ax.matshow(any_matrix, cmap="seismic")
+        cbar = fig.colorbar(mat)
+        lim_color = maximum(abs.(any_matrix))
+        mat.set_clim(vmin=-lim_color,vmax=lim_color)
+        ax.set_xticks(0:1:Nions-1);ax.set_yticks(0:1:Nions-1)
+        ax.set_xticklabels(collect(1:1:Nions))
+        ax.set_yticklabels(collect(1:1:Nions))
+        xlabel(label_x)
+        ylabel(label_y)
+        cbar.set_label(label_c)
+        text(-1,-1.25,comment)
+        #ax.xaxis.set_label_position("top")
+        ax.xaxis.tick_bottom()
+        save_results == true && savefig(plotsdir(location, name_figure)*".svg", bbox_inches="tight")
+    end
+
+    function PlotMatrix3D(interaction_matrix::Array{Float64,2}; save_results=false, name_figure=nothing, location=nothing)
+        Nions = size(interaction_matrix)[1]
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+        ax.view_init(elev=45., azim=30.)
+        crange=replace!(vcat(interaction_matrix...),0.0=>interaction_matrix[Nions,1])
+        colors_bars=PyPlot.cm.Reds(crange);
+        x_grid = vcat([i for i=1:12, j=1:12]...)
+        y_grid = vcat([j for i=1:12, j=1:12]...)
+        ax.bar3d(x_grid,y_grid,zeros(Nions^2),1,1,vcat(interaction_matrix...), alpha=0.75, color=colors_bars, shade=true)
+        ax.set_zticks([0.0,maximum(interaction_matrix)])
+        ax.zaxis.set_rotate_label(false); ax.yaxis.set_rotate_label(false); ax.xaxis.set_rotate_label(false) 
+        ax.set_xlabel("Ion i");ax.set_ylabel("Ion j");ax.set_zlabel("\$\\log\\left(\\frac{J^{(i,j)}}{J^{(i,j)}_{\\textrm{min}}}\\right)\$")
+        ax.grid(false)
+        save_results == true && savefig(plotsdir(location, name_figure)*".svg", bbox_inches="tight")
     end
 
     function PlotUnitary(unitary_matrix::Array; labels=nothing, save_results=false, location=nothing)
@@ -118,16 +155,35 @@ module plotting_functions
         end
     end
 
-    function TweezerStrength(ion_positions::Array, tweezer_freq::Array)
-        Nions = length(ion_positions);
-        posx = [ion_positions[i][1] for i in 1:Nions]
-        posz = [ion_positions[i][3] for i in 1:Nions]
-        figure()
-        scatter(posx,posz,c=abs.(tweezer_freq),s=200,cmap="Reds")
-        colorbar(label="\$ 2\\pi \\Omega_p\$[MHz]")
-        for i in 1:Nions
-            annotate(string(i),(posx[i]+0.1,posz[i]+0.1))
+    function ModesInPlane(pos_ions::Array{Float64,2}, modes::Array{Float64,2}, freqs::Array{Float64,1}; scale::Float64=1.0, mode_num::Array{Int64,1}=collect(1:Nions))
+        plots_modes=[];
+        for n in mode_num
+            bmx(n)=scale*bm[:,n][1:1:Nions];
+            bmz(n)=scale*bm[:,n][2*Nions+1:1:3*Nions];
+            default(titlefont=(10, "times"))
+            vec_plot = quiver(pos_ions[3,:],pos_ions[1,:],quiver=(bmz(n),bmx(n)),aspect_ratio=1.0,width=0.5,size=(1200,600))
+            plot_n = scatter!(pos_ions[3,:],pos_ions[1,:],markersize=2,label="", title="\\omega (MHz)="*string(round(freqs[n],digits=2)))
+            xaxis!(showaxis=false);xgrid!(false);ygrid!(false);
+            push!(plots_modes, plot_n)
+            #push!(plots_modes, vec_plot)
         end
+        return plot(plots_modes...)
+    end
+
+    function TweezerStrength(ion_positions::Array, tweezer_freq::Array; save_results=false, name_figure=nothing, location=nothing)
+        Nions = size(ion_positions)[2];
+        posx = ion_positions[1,:]
+        posz = ion_positions[3,:]
+        twe=plt.scatter(posz,posx,c=abs.(tweezer_freq),s=200,cmap="Reds")
+        plt.figure(frameon=false)
+        plt.axis("off")
+        twe.set_clim(vmin=0,vmax=maximum(tweezer_freq))
+        plt.colorbar(twe,label="\$ \\Omega_p/\\omega_z\$", orientation="horizontal")
+        twe=plt.scatter(posz,posx,c=abs.(tweezer_freq),s=200,cmap="Reds")
+        #annotate(string(1),(posz[1],0.01+posx[1]))
+        #annotate(string(Nions),(posz[Nions],0.01+posx[Nions]))
+        
+        save_results == true && savefig(plotsdir(location, name_figure)*".svg", bbox_inches="tight")
     end
 
     function PlotSpectra(phonon_frequencies::Array, beat_note::Float64; unpinned_frequencies=nothing)

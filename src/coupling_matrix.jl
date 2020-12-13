@@ -60,7 +60,7 @@ module coupling_matrix
     end
 
     ### Hessian unpinned system homogeneous spacing. Planes: x=1; y=2; z=3
-    function Hessian(u_ions::Array{Float64}, ω_trap::Array{Float64}, coeffs::Array{Float64}, size_crystal::Float64; planes::Array{Int64}=[1])
+    function Hessian(u_ions::Array{Float64}, ω_trap::Array{Float64}, size_crystal::Float64, coeffs::Array{Float64}; planes::Array{Int64}=[1])
         Nions = size(u_ions)[2]; 
         x0=size_crystal; d=2*x0/Nions; d += d/(Nions -1);
         a,b = coeffs[1], coeffs[2]
@@ -138,7 +138,7 @@ module coupling_matrix
         ### Coupling matrix
         Jexp = [sum([i==j ? 0 : bm[i,m]*bm[j,m]/((μ_raman*ω_trap[3])^2 - ω_trap[3]^2*λm[m]) for m in 1:Nions]) for i in 1:Nions, j in 1:Nions];#the angular frequency of phonon mode m is ω_m = ω_z*√λ_m, where λ_m is the eigenvalue of mode m.
 
-        return real(Jexp), λm, bm
+        return Float64.(real(Jexp)), λm, bm
     end
 
     "Input arrays have dimensions 3xN, frequencies in MHz, and positions are normalized positions"

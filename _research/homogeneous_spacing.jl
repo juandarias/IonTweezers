@@ -10,7 +10,7 @@ using optimizers, coupling_matrix, crystal_geometry
 "===================================="
 
 ### Ion (z)-coordinates and forces ###
-prefactor = ee^2/(4*π*ϵ0);
+prefactor = ee^2/(4*π*ϵ0);  
 Nions = 12; z0 = 40*10^-6; d = 2*z0/Nions; d += d/(Nions -1);
 zᵢ(i) = -z0+(i-1)*d;
 fzᵢ(i) = prefactor * sum([i==j ? 0 : (zᵢ(j)-zᵢ(i))/abs((zᵢ(i)-zᵢ(j))^3) for j=1:Nions]);
@@ -29,42 +29,53 @@ a,b = 1.84*10^-14, -0.000110607
 "===================================="
 
 pos_ions = PositionIons(Nions,ω_trap,z0,[a,b],plot_position=false)
+pos_ions= round.(pos_ions, digits=7)
 
 
-pos_ions[1,:]
-"========="
-# Hessian
-"========="
+pos_ionss=sort(pos_ions,dims=2)
 
-using Calculus
+Ωpin1D= ω_trap[3]*sqrt.([0.202449,0.195256,0.054453,0.0748212,0.0937544,0.23156,0.23156,0.0937544,0.0748212,0.054453,0.195256,0.202449]);
 
-u_ions=pos_ions./(d*10^6)
+Jexp, evals, evecs = Jexp1Dm(pos_ionss, Ωpin1D, ω_trap, 2.76346*ω_trap[3], equidistant=true, coeffs_field=[a,b], size_crystal=z0)
 
-pos_ions[3,11]
-u_ions[:,1]
-hess_eq = Hessian2(pos_ions, ω_trap, [a,b], z0)
-hess_eq2 = Hessian2(pos_ions, ω_trap, [a,b], z0)
+evals
 
-hess_eq[i,i]
-HessTrapEqui = HessianEquidistantTrap()
-ddvtrapprime = (ee/(d^2*mYb*ω_trap[3]^2))*HessTrapEqui(pos_ions[:,11])
+(evals/ω_trap[3]).^2
 
-(ee/(d^2*mYb*ω_trap[3]^2))
-HessTrapEqui(round.(pos_ions[:,11],digits=5))
-
-pos1= d*round.(pos_ions[:,11],digits=5)
+{0.00347471,{0.202449,0.195256,0.054453,0.0748212,0.0937544,0.23156,0.23156,0.0937544,0.0748212,0.054453,0.195256,0.202449},2.76346,0.296715}
 
 
 
-HessTrapEqui(pos1)
-using LinearAlgebra[]
 
 
 
-for i=1:3, j=1:5, k=1:3
-    i==j && println("match")
-    println(i*j*k)
-end
+@btime Hessian(pos_ions[:,1:4], ω_trap, [a,b], z0)
+@btime Hessian(pos_ions, ω_trap, [a,b], z0, planes=[1,2,3])
+
+
+using LinearAlgebra, Arpack, BenchmarkTools
+
+rn = rand(10,10);
+rn3 = rand(30,30);
+
+@btime eigen(rn)
+
+Jexp1Dm(pos_ions, rand(12), ω_trap, 1.5; equidistant=true, coeffs_field=[a,b], size_crystal=z0)
+
+
+kron(diagm([1,0,0]), diagm(([1.0,2.0,3.0]).^2))
+
+diagm([sign([1.0,2.0,3.0][i]) for i in 1:3])
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -208,4 +219,3 @@ min_objective!(opt, (x,grad) -> nlopt_form(f,x,grad))
 
 
 
-d
