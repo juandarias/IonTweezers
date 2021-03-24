@@ -14,7 +14,7 @@ using optimizers, coupling_matrix, crystal_geometry, plotting_functions
 MHz = 1E6; μm = 1E-6;
 
 Nions = 12; ω_trap = 2π*MHz*[2, 0.6, 0.07];
-prefactor = ee^2/(4*π*ϵ0);
+
 
 Chop_Sort(x) = sort(round.(x,digits=5), dims=2)
 
@@ -22,10 +22,12 @@ Chop_Sort(x) = sort(round.(x,digits=5), dims=2)
 # Positions and Hessian
 "========================="
 
-pos_ions = PositionIons(Nions,ω_trap,plot_position=false);
+pos_ions, figcrystal = PositionIons(Nions, ω_trap, plot_position=true, tcool=500E-6, cvel=10E-20)
+
 pos_ions=Chop_Sort(pos_ions)
 
 hess=Hessian(pos_ions, ω_trap;planes=[2])
+
 
 
 "=================="
@@ -47,11 +49,17 @@ wsave(datadir("Article", savename(Hom1D, "bson")), Hom1D)
 "======================"
 
 
-format_Plot.NormalPlot()
-PlotMatrixArticle(nJhom1D, save_results=true, name_figure=savename(paramsHom1D)*"normal", location="Article")
-gcf()
+homogeneous_coupling = BSON.load(datadir("Article","axis=y_homogeneous=false_μnote=7.014.bson"))
+
+Ωsol =  homogeneous_coupling[:Ωpin]*ω_trap[3]/(2π*MHz)
+μsol = homogeneous_coupling[:μnote]*ω_trap[3]/(2π*MHz)
 
 
-format_Plot.SmallestPlot()
-TweezerStrength2(pos_ions,Hom1D[:Ωpin])
-gcf()
+evals, evecs = eigen(hess)
+λ0 = sqrt.(evals)*ω_trap[3]/(2π*MHz)
+λsol = sqrt.(Jexp1D(pos_ions, homogeneous_coupling[:Ωpin], ω_trap, homogeneous_coupling[:μnote], hessian=hess)[2])*(ω_trap[3]/(2π*MHz))
+
+ExportModeSpectra(λ0, λsol, "Homogeneous_coupling", "Article")
+
+ExportTikzTweezerGraph(pos_ions, Ωsol, "Homogeneous_coupling", "Article", plane="YZ")
+

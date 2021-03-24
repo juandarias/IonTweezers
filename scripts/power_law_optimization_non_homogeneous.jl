@@ -18,58 +18,92 @@ DividebyMax(coupling_matrix::Array{Float64,2}) = coupling_matrix./maximum(coupli
 
 Nions = 12;
 ### Frequencies ###
-ωtrap = 2π*MHz*[0.6, 4.0, 0.4];
+ωtrap = 2π*MHz*[0.6, 0.6, 0.1];
 
 "========================="
 # Positions and Hessian
 "========================="
 
-pos_ions = PositionIons(Nions,ωtrap,plot_position=false)
+pos_ions = PositionIons(Nions,ωtrap,plot_position=false, tcool=500E-6, cvel=10E-20)
 pos_ions=Chop_Sort(pos_ions)
 
-hess=Hessian(pos_ions, ωtrap;planes=[1])
+hess=Hessian(pos_ions, ωtrap; planes=[1])
 
 
 "========================="
-# Loop over different power-law decays
+# Target and experimental matrix
 "========================="
 
 # Target and experimental matrices and phonon frequencies
 JPL(α) = [(i!=j)*abs(i-j)^(-Float64(α)) for i=1:Nions, j=1:Nions]
-JPLexp(parms) = Jexp1D(pos_ions, vcat(parms[1:Nions÷2], reverse(parms[1:Nions÷2])), ωtrap, parms[Nions÷2+1], planes=[1], hessian=hess)[1:2];
+Jexp(parms) = Jexp1Dc(pos_ions, Ωpin(parms), ωtrap, parms[Nions÷2+1], planes=[1], hessian=hess)[1];
+λp(parms) = Jexp1Dc(pos_ions, Ωpin(parms), ωtrap, parms[Nions÷2+1], planes=[1], hessian=hess)[2];
+Jsoln(solution) = Jexp(solution)./maximum(abs.(Jexp(solution)))
+
+
+"========================="
+# Objective function and constrains
+"========================="
+
 
 # Seed and constrains
+Ωpin(parms) = vcat(parms[1:Nions÷2], reverse(parms[1:Nions÷2]))
 initial_μ = 2.0;
 initial_parms = vcat(0.05*ones(Nions÷2), initial_μ);
-Ωmax = 1.0; μmin = 0.5; μmax = 20;
+Ωmax = 5.0; μmin = 0.5; μmax = 20;
 lc = append!(zeros(Nions÷2), μmin);
 uc = append!(Ωmax*ones(Nions÷2), μmax);
 
-# Power law coefficients
-αs = collect(1:0.5:4);
-solution_1 = zeros(7,13);
-solution_2 = zeros(7,13);
+# Objective functions
 
-for n in 1:7
-    α=αs[n]
+DividebyMax(coupling_matrix::Array{Float64,2}) = coupling_matrix./(abs(coupling_matrix[1,2]))
+DividebyDiag(coupling_matrix::Array{Float64,2}) = coupling_matrix./(sum(diag(coupling_matrix,1))/11)
 
-    # Objective functions
-    ϵ_J1(parms) = norm(DividebyMax(JPLexp(parms)[1]) - JPL(α))
-    println(n)
-    
-    #Optimization
-    #inner_optimizer= LBFGS(linesearch = BackTracking(order=2))
-    inner_optimizer= LBFGS()
-    solutionGD_1 = Optim.optimize(ϵ_J1, lc, uc, initial_parms, Fminbox(inner_optimizer))
-	println("done with obj function 1")
-    solution_1[:,n]= solutionGD_1.minimizer
-    
-    #Collect parameters
-    parms_1 = Dict(:ωtrap => ωtrap, :Ωpin => solution_1[:,n][1:Nions÷2], :μnote => solution_1[:,n][Nions÷2 + 1], :axis => "x", :homogeneous => false, :model => replace("r^(-\$α)", "\$α" => "$α"), :optimizer => Dict(:method => "LBFGS", :objective => "norm(Jₜ/max(Jₜ)-Jₑ/max(Jₑ))"), :errorfunction => "1")
-    parms_1[:Jexp] = JPLexp(solution_1[:,n])[1]; parms_1[:ωm] = JPLexp(solution_1[:,n])[2]
-    
-    #Save solution and parameters
-    wsave(datadir("PowerLaw", savename(parms_1, "bson")), parms_1)
+ϵ_J1(parms) = norm(DividebyMax(Jexp(parms)) - JPL(α))
+ϵ_J2(parms) = 10*norm(normalize(Jexp(parms)) - normalize(JPL(α)))
+ϵ_J3(parms) = norm(DividebyDiag(Jexp(parms)) - JPL(α))
+ϵs_cons = (ϵ_J1, ϵ_J2, ϵ_J3)
+
+ϵ_Frobenius(parms) = norm(JPL(α)-parms[Nions÷2+2]*Jexp(parms),2) #Frobenius norm
+ϵ_Nuclear(parms) = nucnorm(JPL(α)-parms[Nions÷2+2]*Jexp(parms)) #Nuclear norm
+ϵ_Spectral(parms) = specnorm(JPL(α)-parms[Nions÷2+2]*Jexp(parms)) #Nuclear norm
+ϵs_norm = (ϵ_Frobenius, ϵ_Nuclear, ϵ_Spectral)
+
+
+"========================="
+# Optimization and Benchmarking
+"========================="
+
+
+a=1;
+powerlaw_LBFGS_summmary = [];
+powerlaw_LBFGS_solution = [];
+for α=1:0.5:4
+    for e in 1:length(ϵs_cons), l in 1:length(line_search)
+        try 
+            solution = Optim.optimize(ϵs_cons[e], lc, uc, initial_parms, Fminbox(algorithm(l)[a]), Optim.Options(time_limit = 500.0, store_trace=true))
+        catch error
+            println(error)
+        end
+        summary_sol = Dict(:target => "α="*string(α), :method => summary(solution), :objective => string(ϵs_cons[e]), :linesearch => line_search[l], :minimizer => Array(solution.minimizer), :minimum => solution.minimum, :iterations => solution.iterations, :time => solution.time_run)
+        push!(powerlaw_LBFGS_summmary, summary_sol)
+        push!(powerlaw_LBFGS_solution, solution)
+    end
 end
+
+
+"========================="
+# Plot results
+"========================="
+
+
+for n in 1:6
+    λexp=sqrt.(λp(powerlaw_LBFGS_solution[n].minimizer));
+    note=powerlaw_LBFGS_summmary[n][:target]*"\n"*powerlaw_LBFGS_summmary[n][:objective]*"_"*powerlaw_LBFGS_summmary[n][:method]*"_"*string(powerlaw_LBFGS_summmary[n][:linesearch])[1:1]*"_1.0x\n[Ωᵢ,μ] = "*string(round.(powerlaw_LBFGS_summmary[n][:minimizer],digits=2))*"\nωₚ = "*string(round.(λexp, digits=2))*"\n time(s):"*string(round(powerlaw_LBFGS_summmary[n][:time],digits=1))
+    PlotMatrixArticle(Jsoln(powerlaw_LBFGS_solution[n].minimizer), comment=note);display(gcf())
+end
+
+
+
 
 

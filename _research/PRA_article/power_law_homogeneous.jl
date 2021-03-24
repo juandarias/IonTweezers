@@ -19,22 +19,21 @@ Chop_Sort(x) = sort(round.(x,digits=5), dims=2)
 Nions = 12; 
 z0 = 40*10^-6; d = 2*z0/Nions; d += d/(Nions -1);
 
-
 ### Fitting F = ax + bx^3 ###
-a,b = 1.84*10^-14, -0.000110607
+a,b = 1.84*10^-14, -0.000110607 
 
 ### Frequencies ###
-ωtrap = 2*pi*1E6*[0.6, 4.0, 0.2];
+ωtrap = 2*pi*1E6*[0.6, 0.6, 0.2];
 ωtrap[3] = abs(√(ee^2/(2π*ϵ0*mYb*d^3)))
 
 "========================="
 # Positions and Hessian
 "========================="
 
-pos_ions = PositionIons(Nions,ωtrap,z0,[a,b],plot_position=false)
-pos_ions=Chop_Sort(pos_ions)
+pos_ions_even = PositionIons(Nions,ωtrap, d, [a,b], plot_position=false)
+pos_ions_even = Chop_Sort(pos_ions_even)
 
-hess=Hessian(pos_ions, ω_trap;planes=[1],[a,b],)
+hess_X_even = Hessian(pos_ions_even, ωtrap, d, [a,b];planes=[1])
 
 
 "==============="
