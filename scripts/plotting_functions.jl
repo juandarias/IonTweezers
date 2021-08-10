@@ -189,7 +189,7 @@ module plotting_functions
     end
 
 
-    function GraphCoupling(interaction_matrix::Array, ion_positions::Array; plane="XZ", upper_cutoff::Float64=1000.0, lower_cutoff::Float64=0.0, zero_offset::Float64=0.0)
+    function GraphCoupling(interaction_matrix::Array, ion_positions::Array; plane="XZ", upper_cutoff::Float64=1000.0, lower_cutoff::Float64=0.0, zero_offset::Float64=0.0, label="\$\\tilde J_{i,j}\$",title_plot=false)
         fig, ax = plt.subplots()
         Nions = size(ion_positions,2)
         ### Position ions and edges
@@ -206,7 +206,7 @@ module plotting_functions
         color_edge = vcat([[interaction_matrix[i,j] for i in j+1:Nions] for j in 1:Nions]...)
 
         ### Remove non-coupling egdes
-        index_zero=findall(color_edge.<=zero_offset)
+        index_zero=findall(abs.(color_edge).<=zero_offset)
         deleteat!(xquiver,index_zero);
         deleteat!(zquiver,index_zero);    
         deleteat!(uquiver,index_zero);
@@ -224,12 +224,12 @@ module plotting_functions
         deleteat!(color_edge,nnneighbour)
 
         ### Creates figure
-        Q= ax.quiver(xquiver,zquiver,uquiver,vquiver, color_edge, angles="xy", scale_units="xy", scale=1.0, headaxislength=0, headlength=0, headwidth = 1, cmap="Reds", alpha=0.75)
+        Q= ax.quiver(xquiver,zquiver,uquiver,vquiver, color_edge, angles="xy", scale_units="xy", scale=1.0, headaxislength=0, headlength=0, headwidth = 1, cmap="RdBu", alpha=0.75)
         
         
         Q.set_clim(vmin=-1,vmax=1)
         #plt.xlim(minimum(posz), maximum(posz))
-        fig.colorbar(Q,label="\$\\tilde J_{i,j}\$")
+        fig.colorbar(Q,label=label)
         ax.scatter(posx,posz,s=50, c="green")
         for i in 1:Nions
             ax.annotate(string(i),(posx[i],posz[i]),fontsize="small")
@@ -237,6 +237,7 @@ module plotting_functions
         #plt.figure(frameon=false)
         ax.set_aspect(1)
         ax.axis("off")
+        title_plot != false && ax.set_title(title_plot)
     end
 
     function Crystal2D(ion_positions::Array, tweezer_freq::Array; plane="XZ", offset_label=0.01)

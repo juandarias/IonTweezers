@@ -342,6 +342,8 @@ using optimizers, coupling_matrix, crystal_geometry, plotting_functions
     Jres = results_triangular_uneven[:result_matrix]
     pos_ions_uneven = results_triangular_uneven[:position_ions]
 
+
+
     GraphCoupling(Jres, pos_ions_uneven, plane="YZ", upper_cutoff=1.6, lower_cutoff=1.0, zero_offset=0.002);gcf() #NN
 
 

@@ -2,11 +2,13 @@ module models
 
     module general
        
-        using LinearAlgebra
+        using LinearAlgebra, DrWatson, Distributed
+        push!(LOAD_PATH, srcdir());
+        using operators_basis
         
-        export NearestNeighbour
+        export NearestNeighbour, NeighbourCorrelatorZ
 
-        "Calculates nearest neighbours"
+        "Calculates nearest neighbours considering a distance cut-off"
         function NearestNeighbour(positions, cutoff)
             number_ions = size(positions)[2]
             indicesNN = []
@@ -15,7 +17,21 @@ module models
                 indexNN = findall(d -> d < cutoff && d != 0, dₘ)
                 push!(indicesNN, indexNN)
             end
-            return indicesNN
+            NN = falses(number_ions, number_ions); #adjacency matrix
+            for i in 1:number_ions, j in indicesNN[i]
+                NN[i,j] = true
+            end
+            return NN, indicesNN
+        end
+
+        "Correlation function ⟨σᶻᵢσᶻⱼ⟩. Takes a state and a NxN boolean array with entries = true for bonds of interest"
+        function NeighbourCorrelatorZ(state, bonds)
+            N = size(bonds)[2]
+            NNcor = zeros(Float64,N,N)
+            for i=1:N, j=i+1:N
+                NNcor[i,j] = bonds[i,j] ? (state')*σᶻᵢσᶻⱼ(i,j,N)*state : 0;
+            end
+            return NNcor
         end
     end
 
@@ -23,7 +39,7 @@ module models
 
         using LinearAlgebra
 
-        export TriangularLattice
+        export TriangularLattice, SublatticesABC
 
         "Generates evenly spaced triangular lattice plaqutte. Depth indicates the distance to the central ion"
         function TriangularLattice(d₀, depth)
@@ -92,6 +108,14 @@ module models
             return triang_lattice
         end
 
+        function SublatticesABC()
+            D0 = ["A"]
+            D1 = ["B","C"]
+            D2 = ["C", "A", "B","A"]
+            for n=1:2 append!(D1, ["B","C"]); append!(D2, ["C", "A", "B","A"]); end
+            return [D0... D1... D2...]
+        end
 
+        
     end
 end
